@@ -48,7 +48,12 @@ with st.sidebar:
 	SNR = st.number_input('y SNR', value=15)
 	SNR_Z = st.number_input('Zy SNR', value=0)
 	SNR_ZX = st.number_input('ZX SNR', value=15)
-	SNR_ZPQ = st.number_input('ZPQ SNR', value=50)
+	with st.expander("Other parameters"):
+		random_type = st.radio('Random type', ('rand','randn'),index=0)
+		SNR_ZPQ = st.number_input('ZPQ SNR', value=50)
+	
+	st.title('PQ visualization')
+	PQ_idx = st.slider("Select PQ_th to visualize", 0,7,0)
 
 st.header("Surface")
 
@@ -420,13 +425,20 @@ Z_norm[:,0] = Z[:,0]/LA.norm(Z[:,0])
 Z_norm[:,1] = np.random.randint(30, 50, size=(age_group_sample_norm[0],)).tolist() + np.random.randint(51, 70, size=(age_group_sample_norm[1],)).tolist()+ np.random.randint(71, 90, size=(age_group_sample_norm[2],)).tolist()
 Z_norm[:,1] = Z[:,1]/LA.norm(Z[:,1])
 Z_norm = Z_norm*Z_weight
-ZY = np.random.rand(R,J)/ np.sqrt(1/12) # var unifor = 1/12
-ZX = np.random.rand(R,I)/ np.sqrt(1/12)
-ZPQ = np.random.rand(R,Rx)/ np.sqrt(1/12)
+
+
+if random_type == 'rand':
+	ZY = np.random.rand(R,J)/ np.sqrt(1/12) # var unifor = 1/12
+	ZX = np.random.rand(R,I)/ np.sqrt(1/12)
+	ZPQ = np.random.rand(R,Rx)/ np.sqrt(1/12)
+elif random_type == 'randn':
+	ZY = np.random.randn(R,J)
+	ZX = np.random.randn(R,I)
+	ZPQ = np.random.randn(R,Rx)
+
 #balance or not
 # residual
 #bottom-up approach from PQ => X =>Y : asssume PQ (sin/sparse (5% regions/voxels)) ~ more realistic 
-
 #top-down approach goes from X =>PQ 
 #simulate low rank input matrix
 # U, S, V = np.linalg.svd(np.random.randint(1, 5, size=(N, I)), full_matrices=True)
@@ -451,7 +463,10 @@ PQ_true = U[selected_components].T*selected_components_weight@alpha@Q.T
 X = X + Z_norm@ZX*np.linalg.norm(X, axis=0)/10**(SNR_ZX/10)
 y_true = X @ PQ_true
 
-y = y_true + np.random.rand(*y_true.shape)/ np.sqrt(1/12)* np.linalg.norm(y_true, axis=0)/10**(SNR/10)
+if random_type == 'rand':
+	y = y_true + np.random.rand(*y_true.shape)/ np.sqrt(1/12)* np.linalg.norm(y_true, axis=0)/10**(SNR/10)
+elif random_type == 'randn':
+	y = y_true + np.random.randn(*y_true.shape)* np.linalg.norm(y_true, axis=0)/10**(SNR/10)
 # y = y_true + np.random.randn(*y_true.shape)* np.sqrt(LA.norm(y_true,'fro')/10**(SNR/10)) 
 y = y + Z_norm@ZY*np.linalg.norm(y_true, axis=0)/10**(SNR_Z/10)
 
@@ -738,7 +753,7 @@ from sklearn.cross_decomposition import PLSRegression
 
 matplotlib.style.use('ggplot')
 outputs = f"results/test"
-cofounder_method = 'PLS'
+cofounder_method = 'LR'
 if not os.path.exists(outputs):
     os.makedirs(outputs)
 
@@ -761,31 +776,31 @@ elif cofounder_method == "LR":
 cofounder_model.fit(Z_train, y_train)
 reg_zy_train = copy.copy(cofounder_model)
 beta_yz_train = reg_zy_train.coef_.T
-y_train_es = reg_zy_train.predict(Z_train)
-# y_train_es = Z_train@beta_yz_train
+# y_train_es = reg_zy_train.predict(Z_train)
+y_train_es = Z_train@beta_yz_train
 y_residuals_train = y_train - y_train_es
 
 
 cofounder_model.fit(Z_train, X_train)
 reg_zx_train = copy.copy(cofounder_model)
 beta_zx_train = reg_zx_train.coef_.T
-X_train_es = reg_zx_train.predict(Z_train)
-# X_train_es = Z_train@beta_zx_train
+# X_train_es = reg_zx_train.predict(Z_train)
+X_train_es = Z_train@beta_zx_train
 X_residuals_train = X_train - X_train_es
 
 cofounder_model.fit(Z_test, y_test) #not know, using as GT
 reg_zy = copy.copy(cofounder_model)
 beta_yz_test = reg_zy.coef_.T
-y_test_es = reg_zy.predict(Z_test)
-# y_test_es = Z_test@beta_yz_test
+# y_test_es = reg_zy.predict(Z_test)
+y_test_es = Z_test@beta_yz_test
 y_residuals_test = y_test - y_test_es
 
 
 cofounder_model.fit(Z_test, X_test)
 reg_zx = copy.copy(cofounder_model)
 beta_zx_test = reg_zx.coef_.T
-X_test_es = reg_zx.predict(Z_test)
-# X_test_es = Z_test@beta_zx_test
+# X_test_es = reg_zx.predict(Z_test)
+X_test_es = Z_test@beta_zx_test
 X_residuals_test = X_test - X_test_es
 
 print("Trainning result z->x, z->y")
@@ -913,31 +928,234 @@ st.altair_chart(
 )
 
 st.title('Feature visualization')
-from sklearn.manifold import TSNE
-df_Z = pd.DataFrame(np.array(Z[boot_indicies]),columns=[f'Z{x}' for x in list(range(Z[boot_indicies].shape[1]))])
-feature_pls = X_train@model_PLS_xy.x_loadings_
-feature_pls = TSNE(n_components=2, learning_rate='auto',
-                  init='random').fit_transform(feature_pls)
-feature_repls = X_train@P
-feature_repls = TSNE(n_components=2, learning_rate='auto',
-                  init='random').fit_transform(feature_repls)
-df_Z['y_embedded_0'] = feature_pls[:,0]
-df_Z['y_embedded_1'] = feature_pls[:,1]
+if st.button("Run TSNE"):
+	from sklearn.manifold import TSNE
+	df_Z = pd.DataFrame(np.array(Z[boot_indicies]),columns=[f'Z{x}' for x in list(range(Z[boot_indicies].shape[1]))])
+	feature_pls = X_train@model_PLS_xy.x_loadings_
+	feature_pls = TSNE(n_components=2, learning_rate='auto',
+					init='random').fit_transform(feature_pls)
+	feature_repls = X_train@P
+	feature_repls = TSNE(n_components=2, learning_rate='auto',
+					init='random').fit_transform(feature_repls)
+	df_Z['y_embedded_0'] = feature_pls[:,0]
+	df_Z['y_embedded_1'] = feature_pls[:,1]
 
-df_Z['y_embedded_re_0'] = feature_repls[:,0]
-df_Z['y_embedded_re_1'] = feature_repls[:,1]
-chart_feature = alt.Chart(df_Z,width=350,title='re-PLS').mark_circle().encode(
-    y=alt.Y('y_embedded_re_0:Q',title='feature0'),
-    x=alt.X('y_embedded_re_1:Q',title="feature1"),
-    color=alt.Color('Z1', bin=True,scale=alt.Scale(scheme='dark2'),title="Age"),
-#     shape=alt.Shape('AGE', bin=True)
-)|alt.Chart(df_Z,width=350,title='PLS').mark_circle().encode(
-    y=alt.Y('y_embedded_0:Q',title='feature0'),
-    x=alt.X('y_embedded_1:Q',title="feature1"),
-    color=alt.Color('Z1', bin=True,scale=alt.Scale(scheme='dark2'),title="Age"),
-#     shape=alt.Shape('AGE', bin=True)
-)   
-st.altair_chart(
-	chart_feature, use_container_width=False
-)
+	df_Z['y_embedded_re_0'] = feature_repls[:,0]
+	df_Z['y_embedded_re_1'] = feature_repls[:,1]
+	chart_feature = alt.Chart(df_Z,width=350,title='re-PLS').mark_circle().encode(
+		y=alt.Y('y_embedded_re_0:Q',title='feature0'),
+		x=alt.X('y_embedded_re_1:Q',title="feature1"),
+		color=alt.Color('Z1', bin=True,scale=alt.Scale(scheme='dark2'),title="Age"),
+	#     shape=alt.Shape('AGE', bin=True)
+	)|alt.Chart(df_Z,width=350,title='PLS').mark_circle().encode(
+		y=alt.Y('y_embedded_0:Q',title='feature0'),
+		x=alt.X('y_embedded_1:Q',title="feature1"),
+		color=alt.Color('Z1', bin=True,scale=alt.Scale(scheme='dark2'),title="Age"),
+	#     shape=alt.Shape('AGE', bin=True)
+	)   
+	st.altair_chart(
+		chart_feature, use_container_width=False
+	)
 
+st.title('PQ comparision')
+st.subheader('Correlation coefficient')
+import matplotlib.pyplot as plt
+
+fig = plt.figure()
+plt.title(f'PQ{PQ_idx}(True-rePLS-PLS)')
+PQ_PLS = model_PLS_xy.coef_
+PQ_i = np.vstack([PQ_true[:,PQ_idx],PQ[:,PQ_idx],PQ_PLS[:,PQ_idx]])
+cov_PQ_i = np.corrcoef(PQ_i)
+plt.imshow(cov_PQ_i, extent=[0, 3, 0,3])
+plt.colorbar()
+for i in range(3):
+    for j in range(3):
+#         print(cov_PQ_i[i, j].round(5)," ")
+        text = plt.text(i+0.5, 3-(j+0.5), cov_PQ_i[i, j].round(5),
+                       va="center",ha="center", color="w")
+#     print("\n")
+st.pyplot(fig)
+
+
+st.subheader('Angle')
+def angle(x,y):
+    inner_product = np.dot(x/LA.norm(x),y/LA.norm(y))
+    angle1 = np.arccos(np.clip(inner_product, -1.0, 1.0))
+    angle1 = np.rad2deg(angle1)
+#     print(angle1)
+    return angle1.round(2) 
+
+angles = np.zeros((8,8))
+for i in range(8):
+    for j in range(8):
+        angles[i,j] = angle(PQ_true[:,i],PQ[:,j])
+        
+# print(angles)
+fig_angle1 = plt.figure(figsize=(15,15))
+plt.title(f'PQ_true vs PQ_rePLS')
+plt.imshow(angles, extent=[0, 8, 0,8])
+plt.colorbar()
+for i in range(8):
+    for j in range(8):
+#         print(angles[i, j].round(5)," ")
+        text = plt.text(i+0.5, 8-(j+0.5), angles[i, j].round(1), color="w")
+
+# st.pyplot(fig_angle1)
+angles = np.zeros((8,8))
+for i in range(8):
+    for j in range(8):
+        angles[i,j] = angle(PQ_true[:,i],PQ_PLS[:,j])
+        
+# print(angles)
+fig_angle2 = plt.figure(figsize=(15,15))
+plt.title(f'PQ_true vs PQ_PLS')
+plt.imshow(angles, extent=[0, 8, 0,8])
+plt.colorbar()
+for i in range(8):
+    for j in range(8):
+#         print(angles[i, j].round(5)," ")
+        text = plt.text(i+0.5, 8-(j+0.5), angles[i, j].round(1), color="w")
+# plt.show()
+
+
+col_angle1,col_angle2 = st.columns(2)
+with col_angle1:
+	st.pyplot(fig_angle1)
+with col_angle2:
+	st.pyplot(fig_angle2)
+
+st.subheader('Boostrap and Confident interval')
+if st.button("Run 32 bootstrap"):
+	df_PQ = pd.DataFrame([],columns= [f'PQ{x}' for x in range(8)])
+	for random_idx in range(32):
+		print(random_idx,"==========================")
+		boot_indicies = resample(indicies, replace=True, n_samples=sample_size, random_state=random_idx)
+		oob_indicies = [x for x in indicies if x not in boot_indicies]
+		X_train = X[boot_indicies]
+		X_test = X[oob_indicies]
+		y_train = y[boot_indicies]
+		y_test = y[oob_indicies]
+		Z_train = Z[boot_indicies]
+		Z_test = Z[oob_indicies]
+		
+		if x_scaler:
+			scalerx = preprocessing.StandardScaler().fit(X_train)
+			X_train = scalerx.transform(X_train)
+			X_test = scalerx.transform(X_test)
+
+		if y_scaler:
+			scalery = preprocessing.StandardScaler().fit(y_train)
+			y_train = scalery.transform(y_train)
+			y_test = scalery.transform(y_test)
+
+		if z_scaler:
+			scalerz = preprocessing.StandardScaler().fit(Z_train)
+			Z_train = scalerz.transform(Z_train)
+			Z_test = scalerz.transform(Z_test)
+		cofounder_method = 'LR'
+		if not os.path.exists(outputs):
+			os.makedirs(outputs)
+
+		#Predict directly
+		n_components = 5
+
+		if cofounder_method == "PLS":        
+			cofounder_model = PLSRegression(n_components=n_components)
+		elif cofounder_method == "PCR":
+			cofounder_model = make_pipeline(PCA(n_components=n_components), LinearRegression())
+		elif cofounder_method == "LR":
+			cofounder_model = LinearRegression()
+
+
+		cofounder_model.fit(Z_train, y_train)
+		reg_zy_train = copy.copy(cofounder_model)
+		beta_yz_train = reg_zy_train.coef_.T
+		y_train_es = reg_zy_train.predict(Z_train)
+		# y_train_es = Z_train@beta_yz_train
+		y_residuals_train = y_train - y_train_es
+
+
+		cofounder_model.fit(Z_train, X_train)
+		reg_zx_train = copy.copy(cofounder_model)
+		beta_zx_train = reg_zx_train.coef_.T
+		X_train_es = reg_zx_train.predict(Z_train)
+		# X_train_es = Z_train@beta_zx_train
+		X_residuals_train = X_train - X_train_es
+
+		cofounder_model.fit(Z_test, y_test) #not know, using as GT
+		reg_zy = copy.copy(cofounder_model)
+		beta_yz_test = reg_zy.coef_.T
+		y_test_es = reg_zy.predict(Z_test)
+		# y_test_es = Z_test@beta_yz_test
+		y_residuals_test = y_test - y_test_es
+
+
+		cofounder_model.fit(Z_test, X_test)
+		reg_zx = copy.copy(cofounder_model)
+		beta_zx_test = reg_zx.coef_.T
+		X_test_es = reg_zx.predict(Z_test)
+		# X_test_es = Z_test@beta_zx_test
+		X_residuals_test = X_test - X_test_es
+
+		print("Trainning result z->x, z->y")
+		results_zx = statistic_regression(X_train[:,:12],np.array(X_train_es)[:,:12],savefile=os.path.join(outputs,'zx_regression'),show_plot=True)
+		print(f"MSE_xz_train = {mean_squared_error(X_train,X_train_es)}" ,f' r = {results_zx["r"]} ')
+
+		results_zy = statistic_regression(y_train,np.array(y_train_es),savefile=os.path.join(outputs,'zy_regression'),show_plot=True)
+		print(f"MSE_yz_train= {mean_squared_error(y_train,y_train_es)}", f' r = {results_zx["r"]} ')
+		method = 'PLS'
+		if residual_scaler:
+			scaler = preprocessing.StandardScaler().fit(X_residuals_train)
+			X_residuals_train = scaler.transform(X_residuals_train)
+			X_residuals_test = scaler.transform(X_residuals_test)
+
+		############################################ Predict ############################
+		if method == "PLS":        
+			residual_model = PLSRegression(n_components=n_components)
+		elif method == "PCR":
+			residual_model = make_pipeline(PCA(n_components=n_components), LinearRegression())
+		elif method == "LR":
+			residual_model = LinearRegression()
+		residual_model.fit(X_residuals_train, y_residuals_train)
+
+
+		#Save results
+		if use_lib:
+			if method == "PLS":
+				T = residual_model.x_scores_
+				P = residual_model.x_loadings_ #projection
+
+				U = residual_model.y_scores_
+				Q = residual_model.y_loadings_
+				PQ = residual_model.coef_
+
+		#         sio.savemat(os.path.join(outputs,f'PSL_loadings.mat'), load)
+
+			elif method == "PCR":
+				P = residual_model['pca'].components_.T
+				PQ = np.zeros([P.shape[0],len(outcomes)])
+
+		#         sio.savemat(os.path.join(outputs,f'PCR_loadings.mat'), load)
+			elif method == "LR":
+				PQ = residual_model.coef_.T
+				P = np.zeros([PQ.shape[0],n_components])
+		#         sio.savemat(os.path.join(outputs,f'LR_loadings.mat'), load)
+		PQ = PQ/ np.linalg.norm(PQ, axis=0)
+		df_PQ_temp = pd.DataFrame(PQ,columns= [f'PQ{x}' for x in range(8)])
+		df_PQ_temp['idx'] = df_PQ_temp.index
+		df_PQ_temp['bootstrap_idx'] = random_idx
+		df_PQ = pd.concat([df_PQ,df_PQ_temp],axis=0)
+	PQ_true = PQ_true/ np.linalg.norm(PQ_true, axis=0)
+	df_PQ_true = pd.DataFrame(PQ_true,columns= [f'PQ{x}' for x in range(8)])
+	df_PQ_true['idx'] = df_PQ_true.index
+
+	chart_CI = alt.Chart(df_PQ_true).mark_line().encode(
+		x=alt.X('idx:T'),
+		y=alt.Y(f'PQ{PQ_idx}:Q'),
+		color=alt.value("#FF0000")
+	)+alt.Chart(df_PQ).mark_errorband(extent='ci').encode(
+		x=alt.X('idx:T'),
+		y=alt.Y(f'mean(PQ{PQ_idx}):Q')
+	)
+
+	st.altair_chart(chart_CI)
