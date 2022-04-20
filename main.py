@@ -30,7 +30,7 @@ with st.sidebar:
 		('Age', 'Gender'),index=1)
 	st.header("Simulation parameters")
 	st.title('Basic')
-	# basic_type = st.radio( "Basic type",('svd-orthonomal', 'NMF-nonnegative'),index=0)  #
+	basic_type = st.radio( "Basic type",('svd-orthonomal', 'NMF-nonnegative'),index=0)  #
 	gender_w = st.number_input('Gender weight (%)', value=10)
 	age_w = st.number_input('Age weight (%)', value=90)
 	# use_violinplot = st.checkbox('Violin plot')
@@ -374,7 +374,7 @@ with st.expander("See explanation outputs"):
 # =================================================================== SIMULATION=============================================
 st.header("Simulation")
 import numpy as np
-# from sklearn.decomposition import NMF
+from sklearn.decomposition import NMF
 from numpy import linalg as LA
 import pandas as pd
 import copy
@@ -441,18 +441,18 @@ elif random_type == 'randn':
 #top-down approach goes from X =>PQ 
 #simulate low rank input matrix
 # U, S, V = np.linalg.svd(np.random.randint(1, 5, size=(N, I)), full_matrices=True)
-basic_type ='svd-orthonomal'
+
 if basic_type =='svd-orthonomal':
 	U, S, V = np.linalg.svd(2.26+0.23*np.random.randn(N, I), full_matrices=False)
 	U = U[:,:Rx]
 	U = U + Z_norm@ZPQ*np.linalg.norm(U, axis=0)/10**(SNR_ZPQ/10)
 	X = U @ np.diag(S)[:Rx,:Rx]@ V[:,:Rx].T 
-# elif basic_type =='NMF-nonnegative':
-# 	model = NMF(n_components=Rx, init='random', random_state=0)
-# 	U = model.fit_transform(2.26+0.23*np.random.randn(N, I))
-# 	U = U + Z_norm@ZPQ*np.linalg.norm(U, axis=0)/10**(SNR_ZPQ/10)
-# 	V = model.components_
-# 	X = U@V
+elif basic_type =='NMF-nonnegative':
+	model = NMF(n_components=Rx, init='random', random_state=0)
+	U = model.fit_transform(2.26+0.23*np.random.randn(N, I))
+	U = U + Z_norm@ZPQ*np.linalg.norm(U, axis=0)/10**(SNR_ZPQ/10)
+	V = model.components_
+	X = U@V
 
 
 
