@@ -374,7 +374,7 @@ with st.expander("See explanation outputs"):
 # =================================================================== SIMULATION=============================================
 st.header("Simulation")
 import numpy as np
-from sklearn.decomposition import NMF
+# from sklearn.decomposition import NMF
 from numpy import linalg as LA
 import pandas as pd
 import copy
