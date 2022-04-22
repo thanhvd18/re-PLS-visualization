@@ -458,8 +458,8 @@ elif basic_type =='NMF-nonnegative':
 
 
 PQ_true = U[selected_components].T*selected_components_weight@alpha@Q.T
-
-X = X + Z_norm@ZX*np.linalg.norm(X, axis=0)/10**(SNR_ZX/10)
+X_true = X 
+X = X_true + Z_norm@ZX*np.linalg.norm(X, axis=0)/10**(SNR_ZX/10)
 y_true = X @ PQ_true
 
 if random_type == 'rand':
