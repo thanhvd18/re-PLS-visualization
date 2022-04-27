@@ -141,7 +141,7 @@ else:
 	as_=['value', 'density'],
 ).encode(
 		y=alt.Y('value:Q',title='Cortical thickness'),
-		color=alt.Color('Z0:N', scale=alt.Scale(scheme='dark2'),),#legend=None
+		color=alt.Color('Z0:N',scale=alt.Scale(domain=['Male', 'Female'],range=['#DB7093', '#2E8B57'])),#legend=None
 		x=alt.X(
 			'density:Q',
 			stack=False,
@@ -240,7 +240,7 @@ else:
 	as_=['value', 'density'],
 ).encode(
 		y=alt.Y('value:Q',title='Volume'),
-		color=alt.Color('Z0:N', scale=alt.Scale(scheme='dark2'),),#legend=None
+		color=alt.Color('Z0:N', scale=alt.Scale(domain=['Male', 'Female'],range=['#DB7093', '#2E8B57'])),#legend=None
 		x=alt.X(
 			'density:Q',
 			stack=False,
@@ -332,7 +332,7 @@ else:
 	as_=['value', 'density'],
 ).encode(
 		y=alt.Y('value:Q',title='Outcomes'),
-		color=alt.Color('Z0:N', scale=alt.Scale(scheme='dark2'),),#legend=None
+		color=alt.Color('Z0:N', scale=alt.Scale(domain=['Male', 'Female'],range=['#DB7093', '#2E8B57'])),#legend=None
 		x=alt.X(
 			'density:Q',
 			stack=False,
@@ -361,14 +361,17 @@ st.altair_chart(
 )
 
 
+from pathlib import Path
+import streamlit as st
 
+def read_markdown_file(markdown_file):
+    return Path(markdown_file).read_text()
+
+outputs_markdown = read_markdown_file("outputs.md")
 with st.expander("See explanation outputs"):
-	 st.write("""
-		'CDRSB': 
-		'ADAS11':,
-		'ADAS13', 'ADASQ4', 'MMSE', 'RAVLT_immediate',
-	   'RAVLT_learning', 'Ventricles'
-	 """)
+	st.markdown(outputs_markdown,unsafe_allow_html=True
+	)
+	 
 	 
 
 # =================================================================== SIMULATION=============================================
@@ -444,30 +447,30 @@ elif random_type == 'randn':
 
 if basic_type =='svd-orthonomal':
 	U, S, V = np.linalg.svd(2.26+0.23*np.random.randn(N, I), full_matrices=False)
-	U = U[:,:Rx]
-	U = U + Z_norm@ZPQ*np.linalg.norm(U, axis=0)/10**(SNR_ZPQ/10)
+	U_true = U[:,:Rx]
+	U = U_true + Z_norm@ZPQ*np.sqrt(np.linalg.norm(U_true, axis=0)/10**(SNR_ZPQ/10))
 	X = U @ np.diag(S)[:Rx,:Rx]@ V[:,:Rx].T 
 elif basic_type =='NMF-nonnegative':
 	model = NMF(n_components=Rx, init='random', random_state=0)
-	U = model.fit_transform(2.26+0.23*np.random.randn(N, I))
-	U = U + Z_norm@ZPQ*np.linalg.norm(U, axis=0)/10**(SNR_ZPQ/10)
+	U_true = model.fit_transform(2.26+0.23*np.random.randn(N, I))
+	U = U_true + Z_norm@ZPQ* np.sqrt(np.linalg.norm(U_true, axis=0)/10**(SNR_ZPQ/10))
 	V = model.components_
 	X = U@V
 
 
 
 
-PQ_true = U[selected_components].T*selected_components_weight@alpha@Q.T
+PQ_true = V[:,selected_components]*selected_components_weight@alpha@Q.T
 X_true = X 
-X = X_true + Z_norm@ZX*np.linalg.norm(X, axis=0)/10**(SNR_ZX/10)
+X = X_true + Z_norm@ZX*np.sqrt(np.linalg.norm(X, axis=0)/10**(SNR_ZX/10))
 y_true = X @ PQ_true
 
 if random_type == 'rand':
-	y = y_true + np.random.rand(*y_true.shape)/ np.sqrt(1/12)* np.linalg.norm(y_true, axis=0)/10**(SNR/10)
+	y = y_true + np.random.rand(*y_true.shape)/ np.sqrt(1/12)* np.sqrt(np.linalg.norm(y_true, axis=0)/10**(SNR/10))
 elif random_type == 'randn':
-	y = y_true + np.random.randn(*y_true.shape)* np.linalg.norm(y_true, axis=0)/10**(SNR/10)
+	y = y_true + np.random.randn(*y_true.shape)*np.sqrt( np.linalg.norm(y_true, axis=0)/10**(SNR/10))
 # y = y_true + np.random.randn(*y_true.shape)* np.sqrt(LA.norm(y_true,'fro')/10**(SNR/10)) 
-y = y + Z_norm@ZY*np.linalg.norm(y_true, axis=0)/10**(SNR_Z/10)
+y = y + Z_norm@ZY*np.sqrt(np.linalg.norm(y_true, axis=0)/10**(SNR_Z/10))
 
 # #Visualize results/evaluate resutlts
 a = ["TL hippocampus R","TL hippocampus L","TL amygdala R","TL amygdala L","TL anterior temporal lobe medial part R","TL anterior temporal lobe medial part L","TL anterior temporal lobe lateral part R","TL anterior temporal lobe lateral part L","TL parahippocampal and ambient gyrus R","TL parahippocampal and ambient gyrus L","TL superior temporal gyrus middle part R","TL superior temporal gyrus middle part L","TL middle and inferior temporal gyrus R","TL middle and inferior temporal gyrus L","TL fusiform gyrus R","TL fusiform gyrus L","cerebellum R","cerebellum L","brainstem excluding substantia nigra","insula posterior long gyrus L","insula posterior long gyrus R","OL lateral remainder occipital lobe L","OL lateral remainder occipital lobe R","CG anterior cingulate gyrus L","CG anterior cingulate gyrus R","CG posterior cingulate gyrus L","CG posterior cingulate gyrus R","FL middle frontal gyrus L","FL middle frontal gyrus R","TL posterior temporal lobe L","TL posterior temporal lobe R","PL angular gyrus L","PL angular gyrus R","caudate nucleus L","caudate nucleus R","nucleus accumbens L","nucleus accumbens R","putamen L","putamen R","thalamus L","thalamus R","pallidum L","pallidum R","corpus callosum","Lateral ventricle excluding temporal horn R","Lateral ventricle excluding temporal horn L","Lateral ventricle temporal horn R","Lateral ventricle temporal horn L","Third ventricle","FL precentral gyrus L","FL precentral gyrus R","FL straight gyrus L","FL straight gyrus R","FL anterior orbital gyrus L","FL anterior orbital gyrus R","FL inferior frontal gyrus L","FL inferior frontal gyrus R","FL superior frontal gyrus L","FL superior frontal gyrus R","PL postcentral gyrus L","PL postcentral gyrus R","PL superior parietal gyrus L","PL superior parietal gyrus R","OL lingual gyrus L","OL lingual gyrus R","OL cuneus L","OL cuneus R","FL medial orbital gyrus L","FL medial orbital gyrus R","FL lateral orbital gyrus L","FL lateral orbital gyrus R","FL posterior orbital gyrus L","FL posterior orbital gyrus R","substantia nigra L","substantia nigra R","FL subgenual frontal cortex L","FL subgenual frontal cortex R","FL subcallosal area L","FL subcallosal area R","FL pre-subgenual frontal cortex L","FL pre-subgenual frontal cortex R","TL superior temporal gyrus anterior part L","TL superior temporal gyrus anterior part R","PL supramarginal gyrus L","PL supramarginal gyrus R","insula anterior short gyrus L","insula anterior short gyrus R","insula middle short gyrus L","insula middle short gyrus R","insula posterior short gyrus L","insula posterior short gyrus R","insula anterior inferior cortex L","insula anterior inferior cortex R","insula anterior long gyrus L","insula anterior long gyrus R"]
@@ -555,7 +558,7 @@ else:
 	as_=['value', 'density'],
 ).encode(
 		y=alt.Y('value:Q',title='Cortical thickness'),
-		color=alt.Color('Z0:N', scale=alt.Scale(scheme='dark2'),),#legend=None
+		color=alt.Color('Z0:N', scale=alt.Scale(domain=['Male', 'Female'],range=['#DB7093', '#2E8B57'])),#legend=None
 		x=alt.X(
 			'density:Q',
 			stack=False,
@@ -577,7 +580,6 @@ else:
 ).configure_view(
 	stroke=None
 )
-
 st.altair_chart(
 	chart_surface_simulation.interactive(), use_container_width=False
 )
@@ -646,7 +648,7 @@ else:
 	as_=['value', 'density'],
 ).encode(
 		y=alt.Y('value:Q',title='Outcomes'),
-		color=alt.Color('Z0:N', scale=alt.Scale(scheme='dark2'),),#legend=None
+		color=alt.Color('Z0:N', scale=alt.Scale(domain=['Male', 'Female'],range=['#DB7093', '#2E8B57'])),#legend=None
 		x=alt.X(
 			'density:Q',
 			stack=False,
@@ -667,6 +669,8 @@ else:
 	titleOrient='bottom', labelOrient='bottom',labelAngle=90,labelAnchor='middle',labelAlign='center',labelPadding=50
 ).configure_view(
 	stroke=None
+).configure_range(
+    category=['#DB7093', '#2E8B57']
 )
 	
 
@@ -752,7 +756,7 @@ from sklearn.cross_decomposition import PLSRegression
 
 matplotlib.style.use('ggplot')
 outputs = f"results/test"
-cofounder_method = 'LR'
+cofounder_method = 'PCR'
 if not os.path.exists(outputs):
     os.makedirs(outputs)
 
@@ -765,41 +769,50 @@ n_components = 5
 
     
 if cofounder_method == "PLS":        
-    cofounder_model = PLSRegression(n_components=n_components)
+    cofounder_model = PLSRegression(n_components=2)
 elif cofounder_method == "PCR":
-    cofounder_model = make_pipeline(PCA(n_components=n_components), LinearRegression())
+    cofounder_model = make_pipeline(PCA(n_components=2), LinearRegression())
 elif cofounder_method == "LR":
     cofounder_model = LinearRegression()
     
     
 cofounder_model.fit(Z_train, y_train)
-reg_zy_train = copy.copy(cofounder_model)
-beta_yz_train = reg_zy_train.coef_.T
-# y_train_es = reg_zy_train.predict(Z_train)
-y_train_es = Z_train@beta_yz_train
+reg_zy_train = copy.deepcopy(cofounder_model)
+
+if cofounder_method == "LR":
+	beta_yz_train = reg_zy_train.coef_.T
+	y_train_es = Z_train@beta_yz_train
+else:
+	y_train_es = reg_zy_train.predict(Z_train)
 y_residuals_train = y_train - y_train_es
 
 
 cofounder_model.fit(Z_train, X_train)
 reg_zx_train = copy.copy(cofounder_model)
-beta_zx_train = reg_zx_train.coef_.T
-# X_train_es = reg_zx_train.predict(Z_train)
-X_train_es = Z_train@beta_zx_train
+if cofounder_method == "LR":
+	beta_zx_train = reg_zx_train.coef_.T
+	X_train_es = Z_train@beta_zx_train	
+else:
+	X_train_es = reg_zx_train.predict(Z_train)
 X_residuals_train = X_train - X_train_es
 
 cofounder_model.fit(Z_test, y_test) #not know, using as GT
 reg_zy = copy.copy(cofounder_model)
-beta_yz_test = reg_zy.coef_.T
-# y_test_es = reg_zy.predict(Z_test)
-y_test_es = Z_test@beta_yz_test
+if cofounder_method == "LR":
+	beta_yz_test = reg_zy.coef_.T
+	y_test_es = Z_test@beta_yz_test
+else:
+	y_test_es = reg_zy.predict(Z_test)
 y_residuals_test = y_test - y_test_es
 
 
 cofounder_model.fit(Z_test, X_test)
 reg_zx = copy.copy(cofounder_model)
-beta_zx_test = reg_zx.coef_.T
-# X_test_es = reg_zx.predict(Z_test)
-X_test_es = Z_test@beta_zx_test
+if cofounder_method == "LR":
+	beta_zx_test = reg_zx.coef_.T
+	X_test_es = Z_test@beta_zx_test
+else:
+	X_test_es = reg_zx.predict(Z_test)
 X_residuals_test = X_test - X_test_es
 
 print("Trainning result z->x, z->y")
