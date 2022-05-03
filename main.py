@@ -53,10 +53,10 @@ with st.sidebar:
 	w_age3_test = st.number_input('Weight Age test group 3', value=34)	
 	st.title('Noise')
 	SNR = st.number_input('y SNR', value=15)
-	SNR_Z = st.number_input('Zy SNR', value=0)
-	SNR_ZX = st.number_input('ZX SNR', value=15)
+	SNR_Z = st.number_input('Zy SNR', value=500)
+	SNR_ZX = st.number_input('ZX SNR', value=500)
 	with st.expander("Other parameters"):
-		random_type = st.radio('Random type', ('rand','randn'),index=0)
+		random_type = st.radio('Random type', ('rand','randn'),index=1)
 		SNR_ZPQ = st.number_input('ZPQ SNR', value=50)
 	
 	st.title('PQ visualization')
@@ -521,7 +521,7 @@ uploaded_simulation = st.file_uploader("Upload simulation file")
 if uploaded_simulation is not None:
 	df_simulation = pd.read_csv(uploaded_simulation)
 	 
-ROIs_simulation = st.multiselect("Choose the simulation region", surface_atlas, surface_atlas[5:10])
+ROIs_simulation = st.multiselect("Choose the simulation region", b, b[5:10])
 if cofounder_type_code == 0:
 	step = 30
 	overlap = 0
