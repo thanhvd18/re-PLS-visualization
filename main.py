@@ -31,7 +31,7 @@ with st.sidebar:
     st.header("Simulation parameters")
     st.title('Basic')
     evaluation = st.radio( "Evaluation on",("Bootstrapping",'New testing set'),index=0)  #Bootstrapping, New testing set
-    basic_type = st.radio( "Basic type",('svd-orthonomal', 'NMF-nonnegative', 'pca-orthonomal'),index=2)  #
+    basic_type = st.radio( "Basic type",('svd-orthonomal', 'NMF-nonnegative', 'pca-orthonomal','sparse-pca'),index=2)  #
     gender_w = st.number_input('Gender weight (%)', value=10)
     age_w = st.number_input('Age weight (%)', value=90)
     # use_violinplot = st.checkbox('Violin plot')
@@ -466,7 +466,7 @@ elif random_type == 'randn':
 # U, S, V = np.linalg.svd(np.random.randint(1, 5, size=(N, I)), full_matrices=True)
 
 from sklearn.decomposition import PCA
-
+from sklearn.decomposition import SparsePCA
 X = 2.26+0.23*np.random.randn(N, I)
 # basic_type ='svd-orthonomal'
 basic_type = 'svd-orthonomal'
@@ -485,6 +485,11 @@ elif basic_type =='pca-orthonomal':
     pca = PCA(n_components=I)
     pca.fit(X)
     PQ_true =pca.components_[selected_components,:].T*selected_components_weight@alpha@Q.T
+elif basic_type =='sparse-pca':
+    sparse_pca = SparsePCA(n_components=I)
+    sparse_pca.fit(X)
+    PQ_true =sparse_pca.components_[selected_components,:].T*selected_components_weight@alpha@Q.T
+
 
 
 
