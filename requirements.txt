@@ -7,3 +7,4 @@ matplotlib
 plotly
 nilearn
 rePLS
+seaborn
