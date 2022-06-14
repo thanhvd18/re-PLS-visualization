@@ -4,3 +4,5 @@ scikit-learn
 scipy
 numpy
 matplotlib
+plotly
+nilearn
