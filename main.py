@@ -136,3 +136,212 @@ row=1, col=1
 st.plotly_chart(fig_PQ, use_container_width=True)
 
 
+def plot_single_brain(P,pathToAnnotationRh,normalize=True):
+    x, y, z = vertices.T
+    i, j, k = np.asarray(triangles).T
+    fig = make_subplots(
+    rows=1, cols=1,   
+    specs=[[{'type': 'surface'}]])
+
+    if normalize:
+        P = min_max_normalize(P)
+    P_surface_i = region2surface(P,pathToAnnotationRh)
+    fig.add_trace(
+    go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=P_surface_i, showscale=True),
+     row=1, col=1)
+    return fig
+
+def boostrapping2(X,Y,Y_true,Z,N,**params):
+	'''
+		Inputs:
+			X: input matrix
+			Y: output matrix
+			Y_true
+			Z:
+		Output:
+			 X_train,X_test,Y_train, Y_test,Z_train, Z_test
+	'''
+	from sklearn.utils import resample
+	sample_size = int(params['population_rate']*N)
+	indicies = list(range(N))
+	boot_indicies = resample(indicies, replace=True, n_samples=sample_size, random_state=params['random_state'])
+	oob_indicies = [x for x in indicies if x not in boot_indicies]
+	X_train = X[boot_indicies]
+	X_test = X[oob_indicies]
+	Y_train = Y[boot_indicies]
+    
+    # Y = Y_true + f_ZY
+	Y_test = Y_true[oob_indicies] +(Y[oob_indicies] -Y_true[oob_indicies] -  Y_noise[oob_indicies])
+
+	Z_train = Z[boot_indicies]
+	Z_test = Z[oob_indicies]
+
+	
+	return X_train,X_test,Y_train, Y_test,Z_train, Z_test
+
+
+st.header('Simulated affected regions')
+fig_affected_region = plot_single_brain(affected_brain_map,pathToAnnotationRh,normalize=False)
+st.plotly_chart(fig_affected_region, use_container_width=True)
+
+
+#Run regressions
+N_repeat = st.number_input("Number of bootstraps", 1,100,10)
+df_mean_results = pd.DataFrame({},columns=['r','MSE', 'pvalue'])
+outcomes = [f"outcome{x}" for x in range(8)]
+for i in range(N_repeat):
+    params = {
+        'population_rate':0.7,
+        'random_state': i
+    }
+    X_train,X_test,Y_train, Y_test,Z_train, Z_test = boostrapping2(X,Y,Y_true,Z,N,**params)
+    
+    params = {
+        'x_scaler': True,
+        'y_scaler': True,
+        'z_scaler': True,
+        'n_components': 5,
+        'PCR_thresh': 1-1e-7,
+        'outcomes':outcomes
+    }
+    if i == 0:
+        df_mean_results,model_PLS,model_rePLS,model_MLR,model_reMLR= compare_methods(X_train,X_test, Y_train,Y_test, Z_train, Z_test, **params)
+    else:
+        df_results,_,_,_,_ = compare_methods(X_train,X_test, Y_train,Y_test, Z_train, Z_test, **params)
+        df_mean_results[['r','MSE', 'pvalue']] = df_mean_results[['r','MSE', 'pvalue']] + df_results[['r','MSE', 'pvalue']]
+df_mean_results[['r','MSE', 'pvalue']] = df_mean_results[['r','MSE', 'pvalue']]/N_repeat    
+#show correlation coefficient
+#show correlation coefficient
+import altair as alt
+from altair import datum
+chart_result= alt.Chart(df_mean_results,width=90).mark_bar().encode(
+    x=alt.X('isRe:N',axis=None, ),
+    y=alt.Y('r:Q',axis=alt.Axis(grid=False)),#scale=alt.Scale(domain=[0.5,1.5])),
+#     y2=alt.Y2('MSE:Q'),
+    color=alt.Color('method:N',scale=alt.Scale(domain=['MLR','reMLR','PCR','rePCR','PLS','rePLS'],range= ['#9ecae9', '#4c78a8', '#ffbf79', '#f58518', '#88d27a', '#54a24b']), title="Method"),
+#         color=alt.Color('method:N',scale=alt.Scale(scheme='tableau20')),
+    column=alt.Column('output:N',title=None)
+).configure_header(
+labelFontSize=15,titleOrient='bottom', labelOrient='bottom',labelAngle=-30,labelAnchor='middle',labelAlign='center',labelPadding=50
+).configure_view(
+    stroke=None,
+).configure_axis(
+    labelFontSize=20,
+    titleFontSize=20
+)
+
+
+
+st.altair_chart(chart_result, use_container_width=False)
+
+
+from sklearn.linear_model import LinearRegression
+from rePLS import rePLS, rePCR, reMLR
+from sklearn.cross_decomposition import PLSRegression
+
+
+st.title('PLS catter plot')
+y_predict = model_PLS.predict(X_test)
+# y_predict = model_rePLS.predict(X_test,Z=Z_test) #- model_MLR.predict(Z_test)
+df_y_truth = pd.DataFrame(Y_test, columns=[outcomes[x] for x in range(8)])
+df_y_predict = pd.DataFrame(y_predict, columns=[f'{outcomes[x]}_p' for x in range(8)])
+df_y = pd.concat([df_y_truth,df_y_predict],axis=1)
+import altair as alt
+from altair import datum
+from scipy.stats import t,pearsonr
+df_y_i = pd.DataFrame({})
+charts = []
+for idx in range(8):
+    r,p = pearsonr(np.array(df_y[[outcomes[idx]]]).ravel(),np.array(df_y[[f'{outcomes[idx]}_p']]).ravel())
+    df_y_i = df_y[[outcomes[idx], f'{outcomes[idx]}_p']]
+    df_y_i['r'] = f'r={r:1.2f}'
+    df_y_i['p'] = f'P={p:1.1e}'
+    text_p = alt.Chart(df_y_i).mark_text( 
+        x=220,y=260.0
+    ).encode(
+    text='p:N'
+    )
+    text_r = alt.Chart(df_y_i).mark_text( 
+        x=220,y=250.0
+    ).encode(
+    text='r:N'
+    )
+    
+    base = alt.Chart(df_y_i,width=250).mark_circle().encode(
+        x=alt.X(f"{outcomes[idx]}:Q",axis=alt.Axis(grid=False, ticks= False, domain=True), title=f'Observed {outcomes[idx]}'),
+        y=alt.Y(f"{outcomes[idx]}_p:Q",axis=alt.Axis(grid=False, ticks= False, domain=True),title=f'Predicted {outcomes[idx]}'),
+    )
+#     scatter = base.mark_circle()+ base.transform_regression(f"{outcome_name[idx]}",f"{outcome_name[idx]}_p").mark_line().encode( color=alt.value("#636363")) 
+    scatter = text_p+text_r+base.mark_circle()+ base.transform_regression(f"{outcomes[idx]}",f"{outcomes[idx]}_p").mark_line().encode( color=alt.value("#636363")) 
+    chart = scatter
+    # chart.save(f"outcome_{idx}.html")
+    charts.append(chart)
+
+row1 = alt.hconcat()
+row2 = alt.hconcat()
+for i in range(0,8):
+    if i<4:
+        row1 = alt.hconcat(row1,charts[i],spacing=100 if i >0 else 0)
+        
+    else:
+#         row2 |= charts[i] 
+        row2 = alt.hconcat(row2,charts[i],spacing=100 if i >4 else 0)
+
+chart_scatter_PLS = alt.vconcat(row1,row2,spacing=50).configure_view(stroke=None).configure_facet(
+    spacing=0)
+
+st.altair_chart(chart_scatter_PLS)
+
+
+st.title('rePLS catter plot')
+# ====repls
+# 
+# y_predict = model_PLS.predict(X_test)
+y_predict = model_rePLS.predict(X_test,Z=Z_test) #- model_MLR.predict(Z_test)
+df_y_truth = pd.DataFrame(Y_test, columns=[outcomes[x] for x in range(8)])
+df_y_predict = pd.DataFrame(y_predict, columns=[f'{outcomes[x]}_p' for x in range(8)])
+df_y = pd.concat([df_y_truth,df_y_predict],axis=1)
+import altair as alt
+from altair import datum
+from scipy.stats import t,pearsonr
+df_y_i = pd.DataFrame({})
+charts = []
+for idx in range(8):
+    r,p = pearsonr(np.array(df_y[[outcomes[idx]]]).ravel(),np.array(df_y[[f'{outcomes[idx]}_p']]).ravel())
+    df_y_i = df_y[[outcomes[idx], f'{outcomes[idx]}_p']]
+    df_y_i['r'] = f'r={r:1.2f}'
+    df_y_i['p'] = f'P={p:1.1e}'
+    text_p = alt.Chart(df_y_i).mark_text( 
+        x=220,y=260.0
+    ).encode(
+    text='p:N'
+    )
+    text_r = alt.Chart(df_y_i).mark_text( 
+        x=220,y=250.0
+    ).encode(
+    text='r:N'
+    )
+    
+    base = alt.Chart(df_y_i,width=250).mark_circle().encode(
+        x=alt.X(f"{outcomes[idx]}:Q",axis=alt.Axis(grid=False, ticks= False, domain=True), title=f'Observed {outcomes[idx]}'),
+        y=alt.Y(f"{outcomes[idx]}_p:Q",axis=alt.Axis(grid=False, ticks= False, domain=True),title=f'Predicted {outcomes[idx]}'),
+    )
+#     scatter = base.mark_circle()+ base.transform_regression(f"{outcome_name[idx]}",f"{outcome_name[idx]}_p").mark_line().encode( color=alt.value("#636363")) 
+    scatter = text_p+text_r+base.mark_circle()+ base.transform_regression(f"{outcomes[idx]}",f"{outcomes[idx]}_p").mark_line().encode( color=alt.value("#636363")) 
+    chart = scatter
+    # chart.save(f"outcome_{idx}.html")
+    charts.append(chart)
+
+row1 = alt.hconcat()
+row2 = alt.hconcat()
+for i in range(0,8):
+    if i<4:
+        row1 = alt.hconcat(row1,charts[i],spacing=100 if i >0 else 0)
+        
+    else:
+#         row2 |= charts[i] 
+        row2 = alt.hconcat(row2,charts[i],spacing=100 if i >4 else 0)
+
+chart_scatter_rePLS = alt.vconcat(row1,row2,spacing=50).configure_view(stroke=None).configure_facet(
+    spacing=0)
+st.altair_chart(chart_scatter_rePLS)
