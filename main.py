@@ -91,23 +91,22 @@ import plotly.graph_objects as go
 from nilearn import datasets, surface
 
 
-vertices, triangles = surface.load_surf_mesh('/mesh.inflated.freesurfer.gii')
+vertices, triangles = surface.load_surf_mesh('mesh.inflated.freesurfer.gii')
 pathToAnnotationRh = 'lh.Schaefer2018_200Parcels_7Networks_order.annot'
 
 
 
 st.title(f'Show {principle_component} Ps ')
+x, y, z = vertices.T
+i, j, k = np.asarray(triangles).T
+
+P_thresh = min_max_normalize(P_true)
+vertex_color = []
+for ii in range(5):
+#     P_thresh = min_max_normalize(P_true)
+    P_surface_i = region2surface(P_true[ii,:],pathToAnnotationRh)
+    vertex_color.append(vertex2color(P_surface_i))
 if st.button(f'Visualize P1, P2'):
-    x, y, z = vertices.T
-    i, j, k = np.asarray(triangles).T
-
-    P_thresh = min_max_normalize(P_true)
-    vertex_color = []
-    for ii in range(5):
-    #     P_thresh = min_max_normalize(P_true)
-        P_surface_i = region2surface(P_true[ii,:],pathToAnnotationRh)
-        vertex_color.append(vertex2color(P_surface_i))
-
 
     # Initialize figure with 4 3D subplots
     fig = make_subplots(
@@ -144,5 +143,5 @@ if st.button(f'Show P5'):
     go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=vertex_color[4], showscale=True),
     row=1, col=1
     )
-    
+
     st.plotly_chart(fig5, use_container_width=False)
