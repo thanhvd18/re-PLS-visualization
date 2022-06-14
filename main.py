@@ -94,54 +94,45 @@ from nilearn import datasets, surface
 vertices, triangles = surface.load_surf_mesh('mesh.inflated.freesurfer.gii')
 pathToAnnotationRh = 'lh.Schaefer2018_200Parcels_7Networks_order.annot'
 
-
-
-st.title(f'Show {principle_component} Ps ')
 x, y, z = vertices.T
 i, j, k = np.asarray(triangles).T
 
-P_thresh = min_max_normalize(P_true)
+# P_thresh = min_max_normalize(P_true)
 vertex_color = []
 for ii in range(5):
 #     P_thresh = min_max_normalize(P_true)
     P_surface_i = region2surface(P_true[ii,:],pathToAnnotationRh)
     vertex_color.append(vertex2color(P_surface_i))
-if st.button(f'Visualize P1, P2'):
 
-    # Initialize figure with 4 3D subplots
-    fig = make_subplots(
-        rows=1, cols=2,   
-        specs=[[{'type': 'surface'}, {'type': 'surface'}]])
+PQ_vertex_color = []
+for ii in range(5):
+#     P_thresh = min_max_normalize(P_true)
+    PQ_surface_i = region2surface(PQ_true[:,ii],pathToAnnotationRh)
+    PQ_vertex_color.append(vertex2color(PQ_surface_i))
 
-    fig.add_trace(
-        go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=vertex_color[0], showscale=True),
-        row=1, col=1
-    )
 
-    fig.add_trace(
-        go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=vertex_color[1], showscale=True),
-        row=1, col=2)
-    st.plotly_chart(fig, use_container_width=False)
-if st.button(f'Show P3, P4'):
-    fig34 = make_subplots(
-    rows=1, cols=2,   
-    specs=[[{'type': 'surface'},{'type': 'surface'}]])
-    fig34.add_trace(
-    go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=vertex_color[2], showscale=True),
-    row=1, col=1
-    )
 
-    fig34.add_trace(
-        go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=vertex_color[3], showscale=True),
-        row=1, col=2)
-    st.plotly_chart(fig34, use_container_width=False)
-if st.button(f'Show P5'): 
-    fig5 = make_subplots(
-    rows=1, cols=1,   
-    specs=[[{'type': 'surface'}]])
-    fig5.add_trace(
-    go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=vertex_color[4], showscale=True),
-    row=1, col=1
-    )
+st.title('Visualize the ground truth P and PQ')
+P_idx = st.slider('Choose P_i', 0, principle_component, 0)
+# if st.button(f'Show P_i'):
+fig5 = make_subplots(
+rows=1, cols=1,   
+specs=[[{'type': 'surface'}]])
+fig5.add_trace(
+go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=vertex_color[P_idx], showscale=True),
+row=1, col=1
+)
+st.plotly_chart(fig5, use_container_width=True)
 
-    st.plotly_chart(fig5, use_container_width=False)
+PQ_idx = st.slider('Choose PQ_i', 0, J, 0)
+# if st.button(f'Show PQ_i'):
+fig_PQ = make_subplots(
+rows=1, cols=1,   
+specs=[[{'type': 'surface'}]])
+fig_PQ.add_trace(
+go.Mesh3d(x=x, y=y, z=z,i=i, j=j, k=k,vertexcolor=PQ_vertex_color[PQ_idx], showscale=True),
+row=1, col=1
+)
+st.plotly_chart(fig_PQ, use_container_width=True)
+
+
