@@ -4,6 +4,9 @@ import numpy as np
 from utils import *
 import scipy
 from scipy.io import savemat
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+
 
 
 
@@ -94,6 +97,53 @@ from nilearn import datasets, surface
 vertices, triangles = surface.load_surf_mesh('mesh.inflated.freesurfer.gii')
 pathToAnnotationRh = 'lh.Schaefer2018_200Parcels_7Networks_order.annot'
 
+def map_arrow_scale(SNR,min=0,max=150,SNR_min=-20, SNR_max=50):
+	#no effect
+	if SNR >= SNR_max:
+		return min
+	elif SNR <= SNR_min:
+		return max
+	else:
+		return (SNR_max- SNR)*(max-min)/(SNR_max-SNR_min)
+
+def plot_confounder_model(SNR_ZX,SNR_ZY,SNR_XY):
+# def 
+	
+	fig  = plt.figure()
+
+	arrow_zx = mpatches.FancyArrowPatch((0, 5),(-5, 0),
+									 mutation_scale=map_arrow_scale(SNR_ZX),shrinkA=20, shrinkB=20,color='r')
+	arrow_zy = mpatches.FancyArrowPatch((0, 5), (5, 0),
+									 mutation_scale=map_arrow_scale(SNR_ZY),shrinkA=20, shrinkB=20, color= 'r')
+	arrow_xy = mpatches.FancyArrowPatch((-5,0), (5, 0),
+									 mutation_scale=map_arrow_scale(SNR_XY),shrinkA=20, shrinkB=20)
+	plt.xlim([-5,5])
+	plt.ylim([-1,5])
+	fig.gca().add_patch(arrow_zx)
+	fig.gca().add_patch(arrow_zy)
+	fig.gca().add_patch(arrow_xy)
+	plt.text(-0.25, 5, 'Z', fontsize=30)
+	plt.text(-5.5, 0, 'X', fontsize=30)
+	plt.text(5, 0, 'Y', fontsize=30)
+	plt.text(-6, 0, f"SNR_ZX={SNR_ZX}", size=15, rotation=0,
+			 ha="right", va="center",
+			 
+			 )
+	plt.text(6, 0, f"SNR_ZY={SNR_ZY}", size=15, rotation=0,
+			 ha="left", va="center",
+			 )
+
+	plt.text(-0, -0.75, f"SNR_XY={SNR_XY}", size=20, rotation=0,
+			 ha="center", va="center",
+			 )
+
+	plt.axis('off')
+	return fig
+	
+
+fig = plot_confounder_model(SNR_ZX,SNR_ZY,SNR_XY)
+st.pyplot(fig)
+
 x, y, z = vertices.T
 i, j, k = np.asarray(triangles).T
 
@@ -136,6 +186,7 @@ row=1, col=1
 st.plotly_chart(fig_PQ, use_container_width=True)
 
 
+@st.cache(suppress_st_warning=True)
 def plot_single_brain(P,pathToAnnotationRh,normalize=True):
     x, y, z = vertices.T
     i, j, k = np.asarray(triangles).T
@@ -151,6 +202,7 @@ def plot_single_brain(P,pathToAnnotationRh,normalize=True):
      row=1, col=1)
     return fig
 
+@st.cache(suppress_st_warning=True)
 def boostrapping2(X,Y,Y_true,Z,N,**params):
 	'''
 		Inputs:
@@ -240,7 +292,7 @@ from rePLS import rePLS, rePCR, reMLR
 from sklearn.cross_decomposition import PLSRegression
 
 
-st.title('PLS catter plot')
+st.title('PLS scatter plot')
 y_predict = model_PLS.predict(X_test)
 # y_predict = model_rePLS.predict(X_test,Z=Z_test) #- model_MLR.predict(Z_test)
 df_y_truth = pd.DataFrame(Y_test, columns=[outcomes[x] for x in range(8)])
@@ -293,7 +345,7 @@ chart_scatter_PLS = alt.vconcat(row1,row2,spacing=50).configure_view(stroke=None
 st.altair_chart(chart_scatter_PLS)
 
 
-st.title('rePLS catter plot')
+st.title('rePLS scatter plot')
 # ====repls
 # 
 # y_predict = model_PLS.predict(X_test)
